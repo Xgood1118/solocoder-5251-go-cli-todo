@@ -77,17 +77,30 @@ func formatTaskLine(t Task) string {
 }
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", r)
+			os.Exit(1)
+		}
+	}()
+
 	cfg, cfgErr = LoadConfig()
-	if cfgErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to load config: %v\n", cfgErr)
+	if cfg == nil {
 		cfg = &defaultConfig
 		cfg.StoragePath = defaultTasksFile()
 	}
+	if cfgErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load config: %v\n", cfgErr)
+	}
+
+	color.NoColor = !isTerminal(os.Stdout)
 
 	var rootCmd = &cobra.Command{
 		Use:   "gocli-todo",
 		Short: "跨平台终端待办事项管理器",
 		Long:  `一个功能丰富的终端待办事项管理器，支持优先级、分类标签、周报等功能。`,
+		SilenceErrors: true,
+		SilenceUsage:  false,
 	}
 
 	rootCmd.AddCommand(newAddCmd())
@@ -106,6 +119,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
 func newAddCmd() *cobra.Command {
